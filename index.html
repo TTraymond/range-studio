@@ -488,6 +488,17 @@ details.lib-tree.l2>summary{font-family:var(--f-mono);font-weight:700;color:var(
 .ser-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
 .ser-row .nm{font-weight:600;font-size:13px}
 .ser-row .sb{font-size:12px;color:var(--muted)}
+.ad-grids.ad-many{grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+.ad-grids.ad-lots{grid-template-columns:repeat(auto-fill,minmax(185px,1fr))}
+.ad-grids.ad-lots figcaption{font-size:12px}
+
+
+.sxi-paste{display:grid;grid-template-columns:1fr 250px;gap:12px;align-items:start}
+.sxi-paste textarea{width:100%;min-height:150px;font-family:var(--f-mono,monospace);font-size:12px}
+.sxi-grid{width:250px}
+@media (max-width:700px){.sxi-paste{grid-template-columns:1fr}.sxi-grid{width:100%;max-width:320px}}
+#rd-quiz .play-opts{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+#rd-quiz .play-opts button{min-height:44px}
 
 </style>
 </head>
@@ -648,6 +659,14 @@ details.lib-tree.l2>summary{font-family:var(--f-mono);font-weight:700;color:var(
       </div>
       <p class="muted" style="margin:0;font-size:12px">Ligne 1 : situations, ligne 2 : actions, puis une ligne par stack (« 10bb »…). Un écran d’aperçu vous laisse choisir le dossier, renommer chaque situation et corriger la détection avant d’importer.</p>
       <div id="csvi" hidden></div>
+      <h3 style="margin:8px 0 0">Import PioSolver · GTO+ · HRC</h3>
+      <div class="row">
+        <button class="btn" id="sxi-paste">Coller une range</button>
+        <label class="btn" for="sxi-file">Choisir des fichiers</label>
+        <input type="file" id="sxi-file" accept=".txt,.rng,.json,.zip" multiple hidden>
+      </div>
+      <p class="muted" style="margin:0;font-size:12px">Texte collé (une action par ligne, combos PIO acceptés), fichiers .txt de PioSolver / GTO+ (un par action), ou export de stratégie HRC (.zip ou .json). Mêmes format et modèle que l’import CSV.</p>
+      <div id="sxi" hidden></div>
     </div>
   </div>
 </section>
@@ -1238,6 +1257,7 @@ details.lib-tree.l2>summary{font-family:var(--f-mono);font-weight:700;color:var(
       </div>
       <div class="stack" style="min-width:0">
         <div class="panel stack" id="rd-detail"><span class="muted">Cliquez sur une case de la matrice.</span></div>
+        <div class="panel stack" id="rd-quiz"></div>
         <div class="panel stack"><h3 style="margin:0">Composition de la range</h3><div id="rd-sum" class="stack" style="gap:6px"></div></div>
         <div class="panel stack">
           <div class="row" style="justify-content:space-between"><h3 style="margin:0" id="rd-copy-h">Copier le filtre</h3>
@@ -4619,7 +4639,7 @@ function renderAD(){
       <div class="field"><label for="ad-req">Équité requise (%)</label><input type="number" id="ad-req" step="0.5" min="1" max="60" style="width:92px" value="${AD.reqAuto?'':fmt(AD.req||0)}" placeholder="auto"></div>
       <label class="row" style="gap:6px;align-self:flex-end;font-size:13px"><input type="checkbox" id="ad-heat"${AD.heat?' checked':''}> Colorer la défense par équité</label>
     </div>
-    <div class="row" style="gap:6px"><span class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600">Défenses affichées</span>
+    <div class="row" style="gap:6px"><span class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600">Défenses affichées <span style="text-transform:none;letter-spacing:0">(jusqu’à 6)</span></span>
       <div class="seg" id="ad-defs">${cands.map(o=>`<button data-s="${esc(o.sid)}" aria-pressed="${chosen.includes(o.sid)}">${esc(o.name.replace(' vs '+att.pos,''))}</button>`).join('')}</div></div>
     <div class="sl-wrap"><label for="ad-stack" style="font-weight:600;font-size:13px">Tapis</label>
       <input type="range" id="ad-stack" min="${lo}" max="${hi}" step="1" value="${AD.stack}">
@@ -4637,10 +4657,12 @@ function renderAD(){
   $('#ad-stack').oninput=e=>{ AD.stack=+e.target.value; e.target.parentNode.querySelector('.sl-val').textContent=fmt(AD.stack)+' BB'; adPaint(); };
   $('#ad-defs').addEventListener('click',e=>{ const b=e.target.closest('[data-s]'); if(!b) return;
     const s=b.dataset.s; let c=AD.sel[AD.att].slice();
-    if(c.includes(s)) c=c.filter(x=>x!==s); else { c.push(s); if(c.length>3) c.shift(); }
+    if(c.includes(s)) c=c.filter(x=>x!==s); else { c.push(s); if(c.length>6) c.shift(); }
     if(!c.length) c=[s];
     AD.sel[AD.att]=c; renderAD(); });
   const panels=[{o:att,role:'att'}].concat(defs.map(o=>({o,role:'def'})));
+  $('#ad-grids').classList.toggle('ad-many',panels.length>3);
+  $('#ad-grids').classList.toggle('ad-lots',panels.length>5);
   $('#ad-grids').innerHTML=panels.map((p,i)=>`<figure><figcaption id="ad-cap-${i}"></figcaption><div id="ad-g-${i}"></div></figure>`).join('');
   AD.grids=panels.map((p,i)=>({...p,g:makeGrid($('#ad-g-'+i),{small:true,readonly:true,hover:h=>adHover(h)}),cap:$('#ad-cap-'+i)}));
   adPaint();
@@ -5034,6 +5056,380 @@ $('#csv-file').onchange=e=>{ const f=e.target.files[0]; if(!f) return;
   const rd=new FileReader(); rd.onload=()=>csviOpen(rd.result,f.name); rd.readAsText(f); e.target.value=''; };
 $('#cmp-mode').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; AD.mode=b.dataset.v; cmpSyncMode(); if(AD.mode==='ad') renderAD(); else renderCompare(); });
 $('#play-body').addEventListener('click',e=>{ const c=e.target.closest('.play-card'); if(c&&!c.disabled) playOpen(c.dataset.g); });
+
+
+/* ===================== v3 : import PIO / GTO+ / HRC + révision active ===================== */
+
+/* ---------- 1. Libellés d'action venant des solveurs ---------- */
+function sxActOf(label,used){
+  const raw=String(label||'').trim();
+  const U=raw.toUpperCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const core=U.replace(/\s*\(?\d+([.,]\d+)?\s*(BB|%|X)?\)?$/,'').trim();
+  if(/^(F|FOLD|COUCHE|PASSE)$/.test(core)) return null;
+  if(/^(A|AI|ALL ?IN|ALLIN|SHOVE|PUSH|JAM|TAPIS|R ?MAX|RAISE ?MAX)$/.test(core)) return 'jam';
+  if(/^(X|CHECK|PAROLE)$/.test(core)) return rsxActId('CHECK',used||new Set());
+  if(/^(C|CALL|SUIVRE|PAYER)$/.test(core)) return 'call';
+  if(/^(LIMP|L|COMPLETE)$/.test(core)) return 'limp';
+  if(/^(OPEN|MIN ?RAISE|MR|RFI)$/.test(core)) return 'open';
+  if(/^(R|RAISE|BET|B|3 ?BET|4 ?BET|RELANCE|RAISE \/ 3BET)$/.test(core)) return used&&used.has('raise')?resolveActionId(raw,used):'raise';
+  return resolveActionId(raw,used);
+}
+/* une ligne « Libellé : range » ? (sans confondre avec « AKs:0.5 ») */
+function sxLabelLine(line){
+  const m=/^\s*([^:=]{1,32}?)\s*[:=]\s*(.*)$/.exec(line); if(!m) return null;
+  const lab=m[1].trim(); if(!lab) return null;
+  if(/^[AKQJT2-9]{2}[so]?$/i.test(lab)||/^[AKQJT2-9][shdc][AKQJT2-9][shdc]$/i.test(lab)) return null;
+  if(/[,\[\]]/.test(lab)) return null;
+  if(!/[a-zà-ÿ]{2,}|^[FCRAXB]$|^[FCRAXB]\s?\d/i.test(lab)) return null;
+  return {label:lab,rest:m[2]};
+}
+function sxIsRangeLine(line){ const w=parseRangeText(line); return Object.keys(w).length>0; }
+/* découpe un bloc collé en actions. Formats acceptés :
+   « Raise: AA,AKs:0.5 »  « Call = ... »  ou un libellé seul sur sa ligne puis la range. */
+function sxSplit(text){
+  const lines=String(text||'').replace(/\r/g,'').split('\n');
+  const out=[]; let cur=null;
+  for(const ln of lines){ if(!ln.trim()) continue;
+    const lab=sxLabelLine(ln);
+    if(lab){ cur={label:lab.label,text:lab.rest}; out.push(cur); continue; }
+    if(!sxIsRangeLine(ln)&&/^[A-Za-zÀ-ÿ][^,\[:=]{1,31}$/.test(ln.trim())){ cur={label:ln.trim(),text:''}; out.push(cur); continue; }
+    if(!cur){ cur={label:'',text:''}; out.push(cur); }
+    cur.text+=(cur.text?',':'')+ln.trim();
+  }
+  return out.filter(a=>a.text.trim()||a.label);
+}
+function sxFormatName(text){
+  const t=String(text||'');
+  if(/[AKQJT2-9][shdc][AKQJT2-9][shdc]/.test(t)) return 'PioSolver / GTO+ (combos)';
+  if(/\[\d/.test(t)) return 'HRC / Flopzilla (poids entre crochets)';
+  if(/[AKQJT2-9]{2}[so]?\s*:\s*\d/.test(t)) return 'GTO Wizard / PIO (main:poids)';
+  return 'liste simple';
+}
+function sxGuessFromName(n){
+  const s=String(n||'').replace(/\.[a-z0-9]+$/i,'').replace(/[_]+/g,' ');
+  const m=/(all ?in|allin|shove|jam|push|raise|bet|3bet|4bet|open|limp|call|check|fold)/i.exec(s);
+  return m?m[1]:s;
+}
+
+/* ---------- 2. Lecture des ZIP (sans bibliothèque) ---------- */
+async function sxUnzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); let e=-1;
+  for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-66000);i--){ if(dv.getUint32(i,true)===0x06054b50){ e=i; break; } }
+  if(e<0) throw new Error('ZIP illisible (fin de fichier introuvable).');
+  const cnt=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true);
+  const dec=new TextDecoder(); const files=[];
+  for(let k=0;k<cnt;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const meth=dv.getUint16(p+10,true), csz=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), xl=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), lo=dv.getUint32(p+42,true);
+    const name=dec.decode(u8.subarray(p+46,p+46+nl)); p+=46+nl+xl+cl;
+    if(/\/$/.test(name)||!/\.(json|txt|rng)$/i.test(name)) continue;
+    const st=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true); const raw=u8.subarray(st,st+csz);
+    let text;
+    if(meth===0) text=dec.decode(raw);
+    else if(meth===8){
+      if(typeof DecompressionStream==='undefined') throw new Error('Ce navigateur ne sait pas décompresser les ZIP : dézippez puis choisissez les fichiers .json.');
+      text=await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    } else continue;
+    files.push({name,text});
+  }
+  return files;
+}
+
+/* ---------- 3. Export de stratégie HRC (JSON) ----------
+   Lecture tolérante : un nœud = un objet avec « actions » (liste) et « hands »
+   (main → {played:[fréquence par action]} ou directement la liste).
+   L'ordre des joueurs se règle dans l'aperçu : rien n'est figé. */
+function sxFind(o,key,depth=0){ if(!o||typeof o!=='object'||depth>4) return undefined; if(key in o) return o[key]; for(const k in o){ const v=sxFind(o[k],key,depth+1); if(v!==undefined) return v; } }
+function hrcIsNode(o){ return o&&typeof o==='object'&&Array.isArray(o.actions)&&o.hands&&typeof o.hands==='object'; }
+function hrcDefaultSeats(n){ if(n===2) return ['SB','BB']; if(n===3) return ['BTN','SB','BB']; return POSITIONS.slice(-n); }
+function hrcCollect(files){
+  let settings=null; const nodes=[];
+  for(const f of files){ let o; try{ o=JSON.parse(f.text); }catch(e){ continue; }
+    const list=Array.isArray(o)?o:(Array.isArray(o.nodes)?o.nodes:(o.nodes&&typeof o.nodes==='object'?Object.values(o.nodes):[o]));
+    let found=false;
+    list.forEach((nd,i)=>{ if(hrcIsNode(nd)){ nodes.push({file:f.name,idx:i,n:nd}); found=true; } });
+    if(!found&&(/settings/i.test(f.name)||sxFind(o,'stacks')!==undefined)) settings=settings||o;
+    if(Array.isArray(o.nodes)&&!settings&&sxFind(o,'stacks')!==undefined) settings=o;
+  }
+  return {settings,nodes};
+}
+function hrcScan(files,fileName){
+  const {settings,nodes}=hrcCollect(files);
+  if(!nodes.length) return {err:'Aucun nœud de stratégie HRC reconnu dans ce fichier. Si c’est bien un export HRC, envoie-le moi : je l’adapterai à sa structure exacte.'};
+  const stacks=(settings&&sxFind(settings,'stacks'))||null;
+  const blinds=(settings&&sxFind(settings,'blinds'))||null;
+  let bb=1; if(Array.isArray(blinds)&&blinds.length){ const v=blinds.map(Number).filter(x=>x>0); bb=v.length>=2?Math.max(v[0],v[1]):v[0]||1; }
+  let np=Array.isArray(stacks)?stacks.length:0;
+  nodes.forEach(x=>{ np=Math.max(np,(+x.n.player||0)+1); (x.n.sequence||[]).forEach(s=>np=Math.max(np,(+s.player||0)+1)); });
+  np=Math.max(2,Math.min(9,np));
+  const stBB=Array.isArray(stacks)?stacks.map(s=>Math.round(+s/bb*10)/10):null;
+  const items=[];
+  for(const x of nodes){ const n=x.n;
+    if((+n.street||0)>0) continue;
+    if(n.actions.length<2) continue;
+    items.push({kind:'hrc',raw:n,file:x.file,player:+n.player||0,seq:(n.sequence||[]).map(s=>({player:+s.player||0,type:String(s.type||'').toUpperCase(),amount:+s.amount||0})),on:true});
+  }
+  if(!items.length) return {err:'Le fichier contient des nœuds HRC, mais aucun nœud préflop avec au moins deux actions.'};
+  return {items,np,seats:hrcDefaultSeats(np),stBB,bb,stacksRaw:Array.isArray(stacks)?stacks.map(Number):null,fileName};
+}
+function hrcIsJam(e,sc){ if(e.type==='A') return true; if(e.type!=='R'||!sc.stacksRaw) return false; const s=sc.stacksRaw[e.player]; return s>0&&e.amount>=s*0.97; }
+function hrcDerive(it,sc){
+  const seat=p=>sc.seats[p]||('J'+(p+1));
+  const hero=it.player, seq=it.seq;
+  const others=seq.filter(e=>e.player!==hero), mine=seq.filter(e=>e.player===hero);
+  const aggr=others.filter(e=>e.type==='R'||e.type==='A');
+  const last=aggr[aggr.length-1];
+  let spot='RFI', vs='', vill=null;
+  const myAgg=mine.some(e=>e.type==='R'||e.type==='A'), myCall=mine.some(e=>e.type==='C');
+  if(!mine.length){
+    if(!aggr.length){ const l=others.find(e=>e.type==='C'); if(l){ spot='vsLimp'; vill=l; } }
+    else if(hrcIsJam(last,sc)){ vill=aggr.find(e=>hrcIsJam(e,sc)); const after=seq.slice(seq.indexOf(vill)+1).some(e=>e.type==='C'&&e.player!==hero); spot=after?'vsShoveCall':'vsShove'; }
+    else { vill=last; const raises=aggr.length; const cold=seq.slice(seq.indexOf(last)+1).some(e=>e.type==='C'&&e.player!==hero); spot=raises>=2?'vs3bet':cold?'vsOpenCall':'vsOpen'; }
+  } else if(last){
+    vill=last; const j=hrcIsJam(last,sc);
+    if(myAgg) spot=mine.filter(e=>e.type==='R').length>=2?'vs4bet':(j?'openVsJam':'openVs3bet');
+    else if(myCall) spot=aggr.length>=2||seq.indexOf(mine[0])>seq.indexOf(aggr[0])?'callVs3bet':(j?'limpVsJam':'limpVsRaise');
+  }
+  if(vill) vs=seat(vill.player);
+  const verb=e=>e.type==='F'?'fold':hrcIsJam(e,sc)?'tapis':e.type==='R'?'raise':e.type==='X'?'check':(seq.slice(0,seq.indexOf(e)).some(z=>z.type==='R'||z.type==='A')?'call':'limp');
+  const br=others.filter(e=>!vill||e.player!==vill.player).map(e=>seat(e.player)+' '+verb(e));
+  const att=vill?verb(vill):'';
+  const pos=seat(hero);
+  const name=spot==='RFI'?`${pos} premier à parler${br.length?' ('+br.join(', ')+')':''}`:`${pos} vs ${vs} ${att}${br.length?' ('+br.join(', ')+')':''}`;
+  const stack=sc.stBB?(sc.stBB[hero]||0):0;
+  return {pos,spot,vsPos:vs,att,br:br.join(', '),name,stack};
+}
+function hrcData(it,sc){
+  const n=it.raw, seq=it.seq;
+  const facing=seq.some(e=>(e.type==='R'||e.type==='A')&&e.player!==it.player);
+  const entered=seq.some(e=>e.type!=='F'&&e.player!==it.player);
+  const pos=sc.seats[it.player];
+  const used=new Set();
+  const nonJamR=n.actions.filter(a=>{ const t=String(a.type||'').toUpperCase(); return t==='R'&&!hrcIsJam({type:'R',player:it.player,amount:+a.amount||0},sc); }).length;
+  const ids=n.actions.map(a=>{ const t=String(a.type||'').toUpperCase(); let id=null;
+    if(t==='F') id=null;
+    else if(t==='A'||(t==='R'&&hrcIsJam({type:'R',player:it.player,amount:+a.amount||0},sc))) id='jam';
+    else if(t==='R'){ if(nonJamR>1) id=resolveActionId(`Raise ${fmt((+a.amount||0)/sc.bb,1)} BB`,used); else id=entered?'raise':'open'; }
+    else if(t==='X') id=rsxActId('CHECK',used);
+    else if(t==='C') id=facing?'call':(pos==='BB'?rsxActId('CHECK',used):'limp');
+    else id=sxActOf(a.type,used);
+    if(id) used.add(id); return id; });
+  const data={};
+  for(const k in n.hands){ const v=n.hands[k]; const arr=Array.isArray(v)?v:(v&&(v.played||v.strategy||v.frequencies)); if(!Array.isArray(arr)) continue;
+    const ex=expandToken(k); if(!ex.length) continue;
+    arr.forEach((f,i)=>{ const id=ids[i]; if(!id) return; let w=+f; if(!(w>0)) return; if(w<=1) w*=100;
+      for(const {h,f:fr} of ex){ const c=(data[h]=data[h]||{}); c[id]=Math.min(100,(c[id]||0)+w*(fr<1?fr:1)); } });
+  }
+  for(const h in data){ for(const a in data[h]){ data[h][a]=Math.round(data[h][a]*10)/10; if(data[h][a]<=0) delete data[h][a]; } if(!Object.keys(data[h]).length) delete data[h]; }
+  return {data,acts:ids.filter(Boolean)};
+}
+
+/* ---------- 4. Écran d'import solveur ---------- */
+const SXI={sc:null,items:[],mode:''};
+const sxSpotOpts=sel=>SPOTS.map(s=>`<option value="${s.id}"${s.id===sel?' selected':''}>${esc(SPOT_SHORT[s.id]||s.id)}</option>`).join('');
+const sxPosOpts=sel=>`<option value=""></option>`+POSITIONS.map(p=>`<option value="${p}"${p===sel?' selected':''}>${p}</option>`).join('');
+function sxiPasteItem(text,label){
+  return {kind:'paste',on:true,name:label||'Range collée',pos:'BTN',spot:'RFI',vsPos:'',stack:10,text:text||'',single:'raise'};
+}
+function sxiOpenPaste(){ SXI.mode='paste'; SXI.sc=null; SXI.items=[sxiPasteItem('','')]; renderSxi(); }
+async function sxiFiles(list){
+  const files=[];
+  try{
+    for(const f of list){
+      if(/\.zip$/i.test(f.name)) (await sxUnzip(await f.arrayBuffer())).forEach(x=>files.push(x));
+      else files.push({name:f.name,text:await f.text()});
+    }
+  }catch(e){ toast(e.message||'Fichier illisible'); return; }
+  const json=files.filter(f=>/\.json$/i.test(f.name)), txt=files.filter(f=>!/\.json$/i.test(f.name));
+  if(json.length){
+    const sc=hrcScan(json,list[0]&&list[0].name);
+    if(sc.err){ toast(sc.err); if(!txt.length) return; }
+    else { SXI.mode='hrc'; SXI.sc=sc; SXI.items=sc.items; renderSxi(); return; }
+  }
+  if(!txt.length){ toast('Aucun fichier exploitable (.txt, .json ou .zip attendus).'); return; }
+  /* .txt : soit un bloc étiqueté, soit une range par fichier (ex. raise.txt + call.txt de PioSolver) */
+  const labeled=txt.filter(f=>sxSplit(f.text).some(a=>a.label));
+  const plain=txt.filter(f=>!labeled.includes(f));
+  SXI.mode='paste'; SXI.sc=null; SXI.items=[];
+  labeled.forEach(f=>SXI.items.push(sxiPasteItem(f.text,f.name.replace(/\.[a-z]+$/i,''))));
+  if(plain.length){
+    const block=plain.map(f=>`${sxGuessFromName(f.name)}: ${f.text.replace(/\s*\n\s*/g,',')}`).join('\n');
+    SXI.items.push(sxiPasteItem(plain.length===1&&!/(raise|call|jam|shove|allin|all in|limp|check|open|bet)/i.test(plain[0].name)?plain[0].text:block,plain.map(f=>f.name.replace(/\.[a-z]+$/i,'')).join(' + ')));
+  }
+  renderSxi();
+}
+function sxiPasteParts(it){
+  const parts=sxSplit(it.text); const used=new Set(); const out=[];
+  parts.forEach(p=>{ const id=p.label?sxActOf(p.label,used):it.single; if(!id){ out.push({label:p.label||'Fold',id:null,w:parseRangeText(p.text)}); return; } used.add(id); out.push({label:p.label||actById(id).label,unl:!p.label,id,w:parseRangeText(p.text)}); });
+  return out;
+}
+function sxiPasteData(it){ const data={}; sxiPasteParts(it).forEach(p=>{ if(!p.id) return; for(const h in p.w){ const c=(data[h]=data[h]||{}); c[p.id]=Math.min(100,(c[p.id]||0)+p.w[h]); } }); return data; }
+function sxiSummary(data){ const acts=usedActions(data); const parts=acts.map(a=>{ let c=0; for(const h in data) c+=combosOf(h)*((data[h][a]||0)/100); return `<span class="chip"><i class="dot" style="background:${actById(a).color};margin-right:4px"></i>${esc(actById(a).label)} ${fmt(c/13.26,1)} %</span>`; });
+  let tot=0; for(const h in data) tot+=combosOf(h)*Math.min(100,sumCell(data[h]))/100;
+  return `${parts.join(' ')} <span class="muted" style="font-size:12px">· jouées ${fmt(tot/13.26,1)} %</span>`; }
+function renderSxi(){
+  const el=$('#sxi'); el.hidden=false;
+  const L=libState(); const base=SXI.mode==='hrc'?(String(SXI.sc.fileName||'HRC').replace(/\.(zip|json)$/i,'').replace(/^[0-9a-f]{8}-/i,'')):'Solveur';
+  const collOpts=`<datalist id="sxi-colls">${L.coll.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist>`;
+  let body='';
+  if(SXI.mode==='hrc'){
+    const sc=SXI.sc;
+    const seatSel=Array.from({length:sc.np},(_,p)=>`<div class="field"><label>Joueur ${p+1}${sc.stBB?` · ${fmt(sc.stBB[p])} BB`:''}</label><select data-seat="${p}">${POSITIONS.map(x=>`<option${x===sc.seats[p]?' selected':''}>${x}</option>`).join('')}</select></div>`).join('');
+    const rows=SXI.items.map((it,i)=>{ const d=hrcDerive(it,sc); it.d=Object.assign(d,it.over||{}); const D=it.d; const {data}=hrcData(it,sc); it.data=data;
+      return `<tr data-i="${i}"${it.on?'':' class="off"'}><td><input type="checkbox" data-k="on"${it.on?' checked':''} aria-label="Importer ce nœud"></td>
+      <td><input type="text" data-k="name" value="${esc(D.name)}"></td><td><select data-k="pos">${sxPosOpts(D.pos)}</select></td><td><select data-k="spot">${sxSpotOpts(D.spot)}</select></td><td><select data-k="vsPos">${sxPosOpts(D.vsPos)}</select></td>
+      <td><input type="number" data-k="stack" step="0.5" min="1" style="width:70px" value="${fmt(D.stack||10)}"></td><td style="text-align:left">${sxiSummary(data)}</td></tr>`; }).join('');
+    body=`<div class="row" id="sxi-seats">${seatSel}</div>
+      <p class="muted" style="margin:0;font-size:12px">Vérifie l’ordre des joueurs : les noms et les situations en dépendent. Change une position ici et toute la liste se recalcule.</p>
+      <div class="scroll-x"><table class="t csvi-t"><thead><tr><th></th><th>Nom</th><th>Pos.</th><th>Situation</th><th>Contre</th><th>Tapis</th><th style="text-align:left">Actions</th></tr></thead><tbody id="sxi-rows">${rows}</tbody></table></div>`;
+  } else {
+    body=SXI.items.map((it,i)=>{ const parts=sxiPasteParts(it); const data=sxiPasteData(it); const unl=parts.some(p=>p.unl);
+      return `<div class="panel stack sxi-item" data-i="${i}">
+        <div class="row"><label class="row" style="gap:6px"><input type="checkbox" data-k="on"${it.on?' checked':''}> <b>Range ${i+1}</b></label>
+          <span class="muted" style="font-size:12px">Format détecté : ${esc(sxFormatName(it.text))}</span></div>
+        <div class="row">
+          <div class="field" style="flex:1;min-width:200px"><label>Nom</label><input type="text" data-k="name" value="${esc(it.name)}"></div>
+          <div class="field"><label>Pos.</label><select data-k="pos">${sxPosOpts(it.pos)}</select></div>
+          <div class="field"><label>Situation</label><select data-k="spot">${sxSpotOpts(it.spot)}</select></div>
+          <div class="field"><label>Contre</label><select data-k="vsPos">${sxPosOpts(it.vsPos)}</select></div>
+          <div class="field"><label>Tapis (BB)</label><input type="number" data-k="stack" min="1" step="0.5" style="width:80px" value="${fmt(it.stack)}"></div>
+          ${unl?`<div class="field"><label>Action de la range sans libellé</label><select data-k="single">${S.actions.map(a=>`<option value="${a.id}"${a.id===it.single?' selected':''}>${esc(a.label)}</option>`).join('')}</select></div>`:''}
+        </div>
+        <div class="sxi-paste"><textarea data-k="text" rows="6" placeholder="Colle ici depuis PioSolver, GTO+, HRC, GTO Wizard ou Flopzilla.&#10;Une action par ligne :&#10;Raise: AA,KK,AKs,AhQh:0.5,...&#10;Call: [50]AJo,KQo[/50],...&#10;Sans libellé, toute la range va dans l’action choisie.">${esc(it.text)}</textarea><div class="sxi-grid" id="sxi-g-${i}"></div></div>
+        <div class="row" style="gap:4px" id="sxi-sum-${i}">${Object.keys(data).length?sxiSummary(data):'<span class="muted" style="font-size:12px">Rien de reconnu pour l’instant.</span>'}</div>
+      </div>`; }).join('')+`<div class="row"><button class="btn sm" id="sxi-add">+ Une autre range</button></div>`;
+  }
+  el.innerHTML=`<div class="panel stack" style="margin-top:10px">
+    <div class="row" style="justify-content:space-between"><b>${SXI.mode==='hrc'?`Export HRC — ${SXI.items.length} nœuds préflop`:'Import depuis un solveur'}</b><button class="btn sm" id="sxi-cancel">Annuler</button></div>
+    <div class="row">
+      <div class="field" style="min-width:200px"><label for="sxi-coll">Dossier</label><input type="text" id="sxi-coll" list="sxi-colls" value="${esc(SXI.coll||base)}">${collOpts}</div>
+      <label class="row" style="gap:6px;align-self:flex-end;font-size:13px"><input type="checkbox" id="sxi-rep" checked> Remplacer une range de même nom et même tapis dans ce dossier</label>
+    </div>
+    ${body}
+    <div class="row"><button class="btn primary" id="sxi-go">Importer</button><span class="muted" style="font-size:12px">Format et modèle : ceux choisis plus haut (${esc($('#csv-format').value)} · ${esc($('#csv-model').value)}).</span></div>
+  </div>`;
+  $('#sxi-cancel').onclick=()=>{ el.hidden=true; SXI.items=[]; };
+  $('#sxi-go').onclick=sxiRun;
+  $('#sxi-coll').oninput=e=>{ SXI.coll=e.target.value; };
+  if(SXI.mode==='hrc'){
+    $('#sxi-seats').addEventListener('change',e=>{ const p=e.target.dataset.seat; if(p==null) return; SXI.sc.seats[+p]=e.target.value; SXI.items.forEach(it=>{ delete it.over; }); renderSxi(); });
+    $('#sxi-rows').addEventListener('input',e=>{ const tr=e.target.closest('tr'); if(!tr) return; const it=SXI.items[+tr.dataset.i], k=e.target.dataset.k; if(!k) return;
+      if(k==='on'){ it.on=e.target.checked; tr.classList.toggle('off',!it.on); return; }
+      it.over=it.over||{}; it.over[k]=k==='stack'?+e.target.value:e.target.value; Object.assign(it.d,it.over); });
+  } else {
+    SXI.items.forEach((it,i)=>{ it.g=makeGrid($('#sxi-g-'+i),{small:true,readonly:true}); sxiPaint(i); });
+    $('#sxi-add').onclick=()=>{ const p=SXI.items[SXI.items.length-1]; const n=sxiPasteItem('',''); if(p){ n.pos=p.pos; n.spot=p.spot; n.vsPos=p.vsPos; n.stack=p.stack; } SXI.items.push(n); renderSxi(); };
+    el.querySelectorAll('.sxi-item').forEach(card=>{ const i=+card.dataset.i, it=SXI.items[i];
+      card.addEventListener('input',e=>{ const k=e.target.dataset.k; if(!k) return;
+        if(k==='on') it.on=e.target.checked; else if(k==='stack') it.stack=+e.target.value; else it[k]=e.target.value;
+        if(k==='text'||k==='single'){ const hadUnl=card.querySelector('[data-k="single"]'); const unl=sxiPasteParts(it).some(p=>p.unl);
+          if(!!hadUnl!==unl){ renderSxi(); const ta=$(`.sxi-item[data-i="${i}"] textarea`); if(ta){ ta.focus(); ta.selectionStart=ta.selectionEnd=ta.value.length; } return; }
+          sxiPaint(i); const d=sxiPasteData(it); $('#sxi-sum-'+i).innerHTML=Object.keys(d).length?sxiSummary(d):'<span class="muted" style="font-size:12px">Rien de reconnu pour l’instant.</span>';
+          card.querySelector('.muted').textContent='Format détecté : '+sxFormatName(it.text); }
+      }); });
+  }
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function sxiPaint(i){ const it=SXI.items[i]; if(!it||!it.g) return; const d=sxiPasteData(it); for(const h of ALL_HANDS){ const c=it.g.cells[h]; c.style.background=cellBg(d[h]); } }
+function sxiRun(){
+  const collNm=($('#sxi-coll').value||'').trim()||'Solveur';
+  const replace=$('#sxi-rep').checked, fmtSel=$('#csv-format').value, model=$('#csv-model').value;
+  const L=libState(); let coll=L.coll.find(c=>c.name.toLowerCase()===collNm.toLowerCase());
+  if(!coll){ coll={id:uid(),name:collNm,ids:[]}; L.coll.push(coll); }
+  let made=0, repl=0, empty=0;
+  SXI.items.forEach(it=>{ if(!it.on) return;
+    let meta, data, src;
+    if(SXI.mode==='hrc'){ const D=it.d; data=it.data; src='hrc'; meta={name:D.name,pos:D.pos,spot:D.spot,vsPos:D.vsPos,stack:+D.stack||10,br:D.br||'',att:D.att||''}; }
+    else { data=sxiPasteData(it); src='solver'; meta={name:it.name||'Range collée',pos:it.pos,spot:it.spot,vsPos:it.vsPos,stack:+it.stack||10,br:'',att:''}; }
+    if(!Object.keys(data).length){ empty++; return; }
+    const sid=coll.id+'#'+src+'#'+meta.name.replace(/\s+/g,'_').slice(0,48);
+    const base={...meta,format:fmtSel,model,note:SXI.mode==='hrc'?'Import HRC':'Import solveur',data,sid,sname:meta.name,src,coll:coll.id};
+    const old=replace?S.ranges.find(r=>r.sid===sid&&r.stack===meta.stack):null;
+    if(old){ Object.assign(old,base,{id:old.id,created:old.created}); repl++; }
+    else { const r={id:uid(),created:Date.now(),...base}; S.ranges.push(r); coll.ids.push(r.id); made++; }
+  });
+  coll.ids=coll.ids.filter(id=>getRange(id)); L.activeColl=coll.id;
+  if(!made&&!repl){ toast(empty?'Aucune main reconnue : vérifie le texte collé.':'Rien à importer.'); return; }
+  save(); renderLibrary(); $('#sxi').hidden=true; SXI.items=[];
+  toast(`${made} range${made>1?'s':''} créée${made>1?'s':''}${repl?`, ${repl} remplacée${repl>1?'s':''}`:''} dans « ${collNm} »${empty?` · ${empty} vide${empty>1?'s':''} ignorée${empty>1?'s':''}`:''}`);
+}
+$('#sxi-paste').onclick=sxiOpenPaste;
+$('#sxi-file').onchange=e=>{ const l=Array.from(e.target.files||[]); e.target.value=''; if(l.length) sxiFiles(l); };
+
+/* ---------- 5. Lecture : révision active ---------- */
+const RQ={on:false,qs:[],i:0,ok:0,ans:null,best:{}};
+function rqPool(r){ return ALL_HANDS.filter(h=>combosOf(h)>0); }
+function rqBuild(r){
+  const acts=rdActs(r), keys=[...acts,'fold'], qs=[];
+  const pl=h=>rdFreq(r,h,'played');
+  const main=h=>keys.reduce((b,k)=>rdFreq(r,h,k)>rdFreq(r,h,b)?k:b,keys[keys.length-1]);
+  const tot=wCombos(rdWeights(r,'played'))/13.26;
+  const shuffle=a=>{ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+  /* total joué */
+  { const st=Math.max(4,Math.round(tot*0.3)); const opts=new Set([Math.round(tot)]); for(const d of shuffle([-2,-1,1,2])){ if(opts.size>=4) break; const v=Math.round(tot+d*st); if(v>=0&&v<=100) opts.add(v); }
+    let k=3; while(opts.size<4) opts.add(Math.min(100,Math.round(tot)+st*(k++)));
+    qs.push({t:'Quelle part des mains cette range joue-t-elle ?',opts:shuffle([...opts]).map(v=>({l:fmt(v)+' %',ok:v===Math.round(tot)})),why:`${fmt(tot,1)} % des combos sont joués.`}); }
+  /* frontière : mains proches du bord de la range */
+  const border=ORDERED_HANDS.filter((h,i)=>{ const a=pl(h), b=pl(ORDERED_HANDS[i+1]||h), c=pl(ORDERED_HANDS[i-1]||h); return (a>=50)!==(b>=50)||(a>=50)!==(c>=50)||(a>5&&a<95); });
+  const pickBorder=n=>shuffle(border.slice()).slice(0,n);
+  for(const h of pickBorder(12).filter(h=>{ const v=keys.map(k=>rdFreq(r,h,k)).sort((a,b)=>b-a); return v[0]-v[1]>=20; }).slice(0,2)){ const m=main(h);
+    if(keys.length>=2) qs.push({h,t:`Que fait principalement ${h} ?`,opts:keys.map(k=>({l:rdLabel(k),ok:k===m})),why:`${h} : ${freqText(r,h)}.`}); }
+  /* laquelle est jouée */
+  { const ins=shuffle(border.filter(h=>pl(h)>=65)), outs=shuffle(border.filter(h=>pl(h)<=35));
+    if(ins.length&&outs.length>=3){ const h=ins[0]; const set=shuffle([h,...outs.slice(0,3)]);
+      qs.push({h,t:'Laquelle de ces mains est jouée le plus souvent ?',opts:set.map(x=>({l:x,ok:x===h,h:x})),why:set.map(x=>`${x} ${fmt(pl(x),0)} %`).join(' · ')}); }
+    if(outs.length&&ins.length>=3){ const h=outs[0]; const set=shuffle([h,...ins.slice(0,3)]);
+      qs.push({h,t:'Laquelle de ces mains est la plupart du temps jetée ?',opts:set.map(x=>({l:x,ok:x===h,h:x})),why:set.map(x=>`${x} ${fmt(pl(x),0)} %`).join(' · ')}); } }
+  /* fréquence d'une main mixte */
+  { const mix=shuffle(ALL_HANDS.filter(h=>{ const f=pl(h); return f>=12&&f<=88; }));
+    if(mix.length){ const h=mix[0], f=pl(h), b=Math.round(f/25)*25; const opts=[0,25,50,75,100].filter(v=>v!==b).sort((x,y)=>Math.abs(x-b)-Math.abs(y-b)).slice(0,3).concat(b);
+      qs.push({h,t:`À quelle fréquence ${h} est-elle jouée (toutes actions confondues) ?`,opts:shuffle(opts).map(v=>({l:'≈ '+v+' %',ok:v===b})),why:`${h} est jouée ${fmt(f,1)} % du temps.`}); } }
+  /* autres profondeurs */
+  { const sib=rdSiblings(r).filter(x=>x.id!==r.id);
+    if(sib.length){ const cands=[]; sib.forEach(x=>ALL_HANDS.forEach(h=>{ const d=rdFreq(x,h,'played')-pl(h); if(Math.abs(d)>=30) cands.push({x,h,d}); }));
+      const c=shuffle(cands)[0];
+      if(c) qs.push({h:c.h,t:`À ${fmt(c.x.stack)} BB (ici ${fmt(r.stack)} BB), ${c.h} est-elle…`,opts:[{l:'plus jouée',ok:c.d>0},{l:'autant jouée',ok:false},{l:'moins jouée',ok:c.d<0}],why:`${c.h} : ${fmt(pl(c.h),0)} % à ${fmt(r.stack)} BB, ${fmt(rdFreq(c.x,c.h,'played'),0)} % à ${fmt(c.x.stack)} BB.`}); } }
+  return shuffle(qs).slice(0,6);
+}
+function rqSide(show){ ['#rd-detail','#rd-sum','#rd-text','#rd-filter'].forEach(s=>{ const e=$(s); if(!e) return; const p=s==='#rd-filter'?e:e.closest('.panel')||e; p.hidden=!show; }); }
+function renderRQ(){
+  const el=$('#rd-quiz'); if(!el) return; const r=getRange(RD.id);
+  if(!r){ el.innerHTML=''; return; }
+  if(!RQ.on){ const b=RQ.best[r.id];
+    el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Révision active</h3>${b!=null?`<span class="muted" style="font-size:12px">meilleur : ${b}</span>`:''}</div>
+      <p class="muted" style="margin:0;font-size:13px">La matrice se cache et l’app te pose jusqu’à six questions sur cette range : part jouée, mains frontières, mixtes, et l’écart avec les autres profondeurs si la série existe.</p>
+      <div class="row"><button class="btn primary sm" id="rq-go">Me tester sur cette range</button></div>`;
+    $('#rq-go').onclick=()=>{ const qs=rqBuild(r); if(qs.length<2){ toast('Range trop simple pour en tirer des questions.'); return; } Object.assign(RQ,{on:true,qs,i:0,ok:0,ans:null,rid:r.id}); RD.sel=null; rqSide(false); rdPaint(); renderRQ(); };
+    return; }
+  if(RQ.i>=RQ.qs.length){ const sc=`${RQ.ok}/${RQ.qs.length}`; const prev=RQ.best[RQ.rid]; if(prev==null||RQ.ok>+String(prev).split('/')[0]) RQ.best[RQ.rid]=sc;
+    el.innerHTML=`<h3 style="margin:0">Révision terminée : ${sc}</h3><p class="muted" style="margin:0;font-size:13px">${RQ.ok===RQ.qs.length?'Sans faute.':RQ.ok>=RQ.qs.length/2?'Bonne base : reprends les mains manquées dans la matrice.':'Range à revoir : parcours-la avec le filtre par action, puis relance.'}</p>
+      <div class="row"><button class="btn primary sm" id="rq-again">Recommencer</button><button class="btn sm" id="rq-stop">Revoir la matrice</button></div>`;
+    $('#rq-again').onclick=()=>{ RQ.on=false; renderRQ(); $('#rq-go').click(); };
+    $('#rq-stop').onclick=rqStop; return; }
+  const q=RQ.qs[RQ.i];
+  el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Question ${RQ.i+1}/${RQ.qs.length}</h3><span class="muted" style="font-size:12px">${RQ.ok} juste${RQ.ok>1?'s':''} · <a href="#" id="rq-quit">arrêter</a></span></div>
+    <p style="margin:0;font-weight:600">${esc(q.t)}</p>
+    <div class="play-opts" id="rq-opts">${q.opts.map((o,k)=>`<button class="btn${RQ.ans!=null?(o.ok?' good':k===RQ.ans?' bad':''):''}" data-k="${k}"${RQ.ans!=null?' disabled':''}>${esc(o.l)}</button>`).join('')}</div>
+    ${RQ.ans!=null?`<p class="muted" style="margin:0;font-size:13px">${q.opts[RQ.ans].ok?'<b style="color:var(--ok)">Juste.</b> ':'<b style="color:var(--bad)">Non.</b> '}${esc(q.why)}</p><div class="row"><button class="btn primary sm" id="rq-next">${RQ.i+1<RQ.qs.length?'Question suivante':'Voir le score'}</button></div>`:''}`;
+  $('#rq-quit').onclick=e=>{ e.preventDefault(); rqStop(); };
+  $('#rq-opts').onclick=e=>{ const b=e.target.closest('[data-k]'); if(!b||RQ.ans!=null) return; RQ.ans=+b.dataset.k; if(q.opts[RQ.ans].ok) RQ.ok++; RD.sel=q.h||q.opts[RQ.ans].h||null; rdPaint(); renderRQ(); };
+  const nx=$('#rq-next'); if(nx) nx.onclick=()=>{ RQ.i++; RQ.ans=null; RD.sel=null; rdPaint(); renderRQ(); };
+}
+function rqStop(){ RQ.on=false; RQ.ans=null; rqSide(true); rdPaint(); renderRQ(); rdDetail(); }
+const _rdPaint0=rdPaint;
+rdPaint=function(){ _rdPaint0(); if(!RQ.on||RQ.rid!==RD.id||!RD.g) return;
+  const masked=RQ.ans==null&&RQ.i<RQ.qs.length;
+  if(!masked) return;
+  for(const h of ALL_HANDS){ const c=RD.g.cells[h]; c.style.background='var(--panel2)'; delete c.dataset.f; c.classList.remove('zero'); } };
+const _renderRead0=renderRead;
+renderRead=function(){ if(RQ.on&&RQ.rid!==RD.id){ RQ.on=false; rqSide(true); } _renderRead0(); renderRQ(); if(RQ.on) rqSide(false); };
+RENDERERS.read=renderRead;
+/* une seule range par profondeur dans « Autres profondeurs » : la plus proche (même dossier, même source) */
+const _rdSib0=rdSiblings;
+rdSiblings=function(r){ const l=_rdSib0(r); const by={};
+  const sc=x=>(x.id===r.id?8:0)+(x.coll&&x.coll===r.coll?4:0)+((x.src||'')===(r.src||'')?2:0)+((x.tpl||'')===(r.tpl||'')?1:0);
+  l.forEach(x=>{ if(!by[x.stack]||sc(x)>sc(by[x.stack])) by[x.stack]=x; });
+  return Object.values(by).sort((a,b)=>a.stack-b.stack); };
 
 </script>
 </body>
