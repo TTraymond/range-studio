@@ -569,6 +569,28 @@ html.oled{--felt:#000;--panel:#0a100d;--panel2:#121b17;--line:#1f302a}
 .tour-board .rk{font-family:var(--f-display);color:var(--brass);font-size:16px}
 .tour-board .dt{font-size:11px}
 
+.play-sec{margin-bottom:18px}.play-sec h3{margin:0 0 2px;font-size:15px}.play-sec>p{margin:0 0 8px;font-size:12px}
+.sx-filter{gap:8px;align-items:center}.sx-filter select{min-height:36px}
+.sx-board{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,230px);gap:14px;align-items:start}
+@media (max-width:640px){.sx-board{grid-template-columns:1fr}}
+.sx-grid{width:100%;max-width:420px}
+.sx-side{display:flex;flex-direction:column;gap:8px}
+.sx-hand{font-family:var(--f-display);font-size:38px;line-height:1}
+.sx-ctl{display:flex;gap:6px;align-items:center}.sx-ctl input{flex:1;min-width:0;height:36px}
+.sx-ctl .btn{min-width:44px;min-height:44px}
+.sx-axis{display:flex;justify-content:space-between;font-size:11px}
+.sx-grid .sx-pick{outline:2px solid #fff;outline-offset:-2px;z-index:2}
+.sx-grid .sx-cut{outline:3px solid var(--brass);outline-offset:-3px;z-index:3}
+.sx-grid .sx-dim{opacity:.35}.sx-grid .sx-line{opacity:1}
+.sx-fb{padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:14px}
+.sx-fb.ok{border-color:var(--ok)}.sx-fb.near{border-color:var(--brass)}.sx-fb.far{border-color:#d9534f}
+.sx-strip{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}.sx-strip span{padding:3px 7px;border-radius:6px;background:var(--panel2)}.sx-strip .hit{outline:2px solid var(--brass)}
+.sx-opts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.sx-opts .btn{min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.sx-q{border-style:dashed}
+.thr-note{display:flex;gap:8px;align-items:flex-start;font-size:13px}.thr-note .dot{margin-top:5px;flex:none}
+.thr-t{font-size:12px;width:100%}.thr-t th,.thr-t td{padding:4px 6px;text-align:center;white-space:nowrap}.thr-t td small{display:block;color:var(--muted);font-size:10px}.thr-t .cur{background:color-mix(in srgb,var(--brass) 14%,transparent)}
+#rd-thr{display:flex;flex-direction:column;gap:8px}
+
 </style>
 </head>
 <body>
@@ -1326,6 +1348,7 @@ html.oled{--felt:#000;--panel:#0a100d;--panel2:#121b17;--line:#1f302a}
       </div>
       <div class="stack" style="min-width:0">
         <div class="panel stack" id="rd-detail"><span class="muted">Cliquez sur une case de la matrice.</span></div>
+        <div class="panel stack" id="rd-thr"></div>
         <div class="panel stack" id="rd-quiz"></div>
         <div class="panel stack"><h3 style="margin:0">Composition de la range</h3><div id="rd-sum" class="stack" style="gap:6px"></div></div>
         <div class="panel stack">
@@ -4819,17 +4842,25 @@ function cmpSyncMode(){
 const PLAY={game:null,st:null};
 function playState(){ const P=S.play=S.play||{}; P.best=P.best||{}; P.runs=P.runs||{}; return P; }
 const GAME_DEFS=[
-  {id:'tour',n:'Mini-tournoi',d:'Arcade : le tapis fond, le chrono accélère, trois vies. Bats ton record.',need:'tour',star:true},
-  {id:'seuil',n:'Le seuil',d:'À partir de combien de BB cette main entre dans la range ?',need:'serie'},
-  {id:'branche',n:'La branche',d:'Même main, même tapis : le troisième joueur a call, ou il a fold ?',need:'branch'},
-  {id:'grise',n:'La zone grise',d:'Seulement les mains mixtes, celles qui séparent les bons des très bons.',need:'range'},
-  {id:'qui',n:'Qui joue ça ?',d:'Une matrice sans étiquette : retrouvez la situation.',need:'range'},
-  {id:'def',n:'Le défenseur',d:'On vous montre l’attaque et le prix : construisez la défense.',need:'pair'},
-  {id:'@tetris',n:'Range Tetris',d:'Le classique de l’app : les mains tombent, vous triez.',need:''},
-  {id:'@train',n:'Recréer la range',d:'Redessiner la grille de mémoire, puis comparer.',need:''},
-  {id:'@mines',n:'Démineur de range',d:'Dévoiler la range sans toucher une main qui n’y est pas.',need:''},
-  {id:'@eq',n:'Plus ou moins d’équité',d:'Deux mains, laquelle est devant ?',need:''},
-  {id:'@surv',n:'Survie Expresso',d:'Enchaîner les décisions sans se tromper.',need:''}
+  {g:'seuils',id:'front',n:'La frontière',d:'Quelle est la main la plus faible que tu joues ? Glisse la coupure sur la grille.',need:'range',star:true},
+  {g:'seuils',id:'faible',n:'La plus faible',d:'Quatre mains : laquelle est la dernière encore jouée ?',need:'range'},
+  {g:'seuils',id:'glisse',n:'Le glissement',d:'Tu connais la coupure à 10 BB et à 20 BB : où est-elle à 15 ?',need:'range'},
+  {g:'seuils',id:'seuil',n:'Le seuil en BB',d:'À partir de combien de BB cette main entre dans la range ?',need:'serie'},
+  {g:'lire',id:'branche',n:'La branche',d:'Même main, même tapis : le troisième joueur a call, ou il a fold ?',need:'branch'},
+  {g:'lire',id:'grise',n:'La zone grise',d:'Seulement les mains mixtes, celles qui séparent les bons des très bons.',need:'range'},
+  {g:'lire',id:'qui',n:'Qui joue ça ?',d:'Une matrice sans étiquette : retrouvez la situation.',need:'range'},
+  {g:'lire',id:'def',n:'Le défenseur',d:'On vous montre l’attaque et le prix : construisez la défense.',need:'pair'},
+  {g:'lire',id:'@train',n:'Recréer la range',d:'Redessiner la grille de mémoire, puis comparer.',need:''},
+  {g:'arcade',id:'tour',n:'Mini-tournoi',d:'Le tapis fond, le chrono accélère, trois vies. Bats ton record.',need:'tour',star:true},
+  {g:'arcade',id:'@surv',n:'Survie Expresso',d:'Enchaîner les décisions sans se tromper.',need:''},
+  {g:'arcade',id:'@tetris',n:'Range Tetris',d:'Le classique de l’app : les mains tombent, vous triez.',need:''},
+  {g:'arcade',id:'@mines',n:'Démineur de range',d:'Dévoiler la range sans toucher une main qui n’y est pas.',need:''},
+  {g:'arcade',id:'@eq',n:'Plus ou moins d’équité',d:'Deux mains, laquelle est devant ?',need:''}
+];
+const GAME_GROUPS=[
+  {id:'seuils',t:'1 · Apprendre les seuils',s:'Où s’arrête chaque action. L’essentiel : retenir des coupures, pas 169 cases.'},
+  {id:'lire',t:'2 · Lire et construire une range',s:'Comprendre la forme d’une range, ses branches et sa défense.'},
+  {id:'arcade',t:'3 · Arcade',s:'Du rythme, des scores et des vies pour ancrer le tout.'}
 ];
 const rnd1=a=>a[Math.floor(Math.random()*a.length)];
 function gameReady(need){
@@ -4854,13 +4885,11 @@ function branchPairs(){
 function renderPlay(){
   if(PLAY.game){ playRender(); return; }
   const P=playState();
-  $('#play-body').innerHTML=`<div class="play-cards">${GAME_DEFS.map(g=>{
-    const ok=gameReady(g.need);
-    const best=P.best[g.id];
+  const card=g=>{ const ok=gameReady(g.need), best=P.best[g.id];
     return `<button class="play-card${g.star?' star':''}" data-g="${g.id}"${ok?'':' disabled'}>
       <b>${esc(g.n)}</b><span class="d">${esc(g.d)}</span>
-      <span class="m">${ok?(best?`record ${esc(String(best))}`:'jamais joué'):'demande des ranges importées'}</span></button>`;
-  }).join('')}</div>`;
+      <span class="m">${ok?(best?`record ${esc(String(best))}`:'jamais joué'):'demande des ranges importées'}</span></button>`; };
+  $('#play-body').innerHTML=GAME_GROUPS.map(G=>`<section class="play-sec"><h3>${esc(G.t)}</h3><p class="muted">${esc(G.s)}</p><div class="play-cards">${GAME_DEFS.filter(g=>g.g===G.id).map(card).join('')}</div></section>`).join('');
 }
 function playOpen(id){
   if(id[0]==='@'){
@@ -5794,6 +5823,194 @@ const GAMES={seuil:gSeuil,branche:gBranche,grise:gGrise,qui:gQui,def:gDef,tour:g
 
 /* le hub affiche le classement sous les cartes */
 { const _rp=renderPlay; renderPlay=function(){ _rp(); if(!PLAY.game){ const b=tBoardHTML(-1); if(b) $('#play-body').insertAdjacentHTML('beforeend',`<div class="panel stack" style="margin-top:12px">${b}</div>`); } }; RENDERERS.play=renderPlay; }
+
+/* ===================== v6 : Les seuils (préflop) ===================== */
+/* Un seuil = la main la plus faible avec laquelle on fait une action donnée. On le mesure sur l'ordre de force de l'app
+   (ORDERED_HANDS), avec une tolérance : quelques mains isolées plus bas (A5s…) sont des « exceptions », pas la coupure. */
+/* Un seuil = la main la plus faible jouée DANS UNE FAMILLE (paires, Axs, Kxs, Axo…). C'est comme ça qu'on les retient :
+   « paires jusqu'à 55, Axs jusqu'à A2s, Kxs jusqu'à K7s… ». Chaque famille est une ligne ordonnée de la plus forte à la plus faible. */
+const SXR='AKQJT98765432';
+const SXLINES=(()=>{ const L=[{id:'pp',name:'Paires',hands:SXR.split('').map(x=>x+x)}];
+  [['A','s'],['K','s'],['Q','s'],['J','s'],['T','s'],['9','s'],['A','o'],['K','o'],['Q','o'],['J','o'],['T','o']].forEach(([c,t])=>{
+    const hs=[]; for(let i=SXR.indexOf(c)+1;i<13;i++) hs.push(c+SXR[i]+t);
+    L.push({id:c+t,name:`${c}x${t==='s'?'s':'o'}`,hands:hs,suited:t==='s'}); });
+  return L; })();
+const SXF={coll:'',only:null,act:''};
+const sxShuf=a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const sxName=r=>r.sname||r.name;
+const SXVERB={jam:'mets tapis (jam)',call:'paies (call)',raise:'relances',open:'ouvres',limp:'limpes',check:'checkes','3bet':'3bet','4bet':'4bet'};
+const sxVerb=a=>SXVERB[a]||`joues « ${actById(a).label} »`;
+const THR_C=new WeakMap();
+function thrOf(r,a){
+  let m=THR_C.get(r); if(!m){ m={}; THR_C.set(r,m); }
+  if(a in m) return m[a];
+  let tot=0;
+  const lines=SXLINES.map(L=>{
+    const f=L.hands.map(h=>Math.min(100,(r.data[h]||{})[a]||0)); tot+=f.reduce((x,y)=>x+y,0);
+    let cut=-1; f.forEach((v,i)=>{ if(v>=50) cut=i; });
+    const holes=[]; for(let i=0;i<cut;i++) if(f[i]<50) holes.push(i);
+    const mixed=[]; f.forEach((v,i)=>{ if(v>=10&&v<50&&i>cut) mixed.push(i); });
+    return {id:L.id,name:L.name,hands:L.hands,f,cut,hand:cut>=0?L.hands[cut]:null,holes,mixed,full:cut===L.hands.length-1,ok:cut>=1&&cut<L.hands.length-1&&holes.length<=3&&L.hands.length>=5};
+  });
+  return m[a]={a,lines,used:tot>0};
+}
+const sxFam=r=>r.sid?S.ranges.filter(x=>x.sid===r.sid).sort((a,b)=>a.stack-b.stack):rdSiblings(r);
+function sxPool(){
+  let p=S.ranges.filter(r=>r.data&&Object.keys(r.data).length>=20);
+  if(SXF.only) p=sxFam(SXF.only); else if(SXF.coll) p=p.filter(r=>r.coll===SXF.coll);
+  return p;
+}
+function sxPick(need){
+  const pool=sxPool(); if(!pool.length) return null;
+  for(let k=0;k<300;k++){ const r=rnd1(pool), acts=usedActions(r.data); if(!acts.length) continue; const a=rnd1(acts), t=thrOf(r,a);
+    const ls=t.lines.filter(l=>l.ok&&(!need||need(l))); if(ls.length) return {r,a,t,L:rnd1(ls)}; }
+  return null;
+}
+{ const _pq=playQuit; playQuit=function(){ SXF.only=null; return _pq.apply(this,arguments); }; }
+
+/* ---------- briques communes ---------- */
+function sxFilterHTML(){
+  const colls=collsWithSeries();
+  if(!colls.length&&!SXF.only) return '';
+  return `<div class="row sx-filter"><label class="muted" for="sx-coll" style="font-size:12px">Sur quelles ranges ?</label><select id="sx-coll"><option value="">Toutes mes ranges</option>${colls.map(c=>`<option value="${c.id}"${SXF.coll===c.id&&!SXF.only?' selected':''}>${esc(c.name)}</option>`).join('')}${SXF.only?`<option value="@only" selected>Ce spot : ${esc(sxName(SXF.only))}</option>`:''}</select></div>`;
+}
+function sxBindFilter(game){ const s=$('#sx-coll'); if(!s) return; s.onchange=e=>{ const v=e.target.value; if(v==='@only') return; SXF.only=null; SXF.coll=v; game.next(); game.render(); }; }
+function sxBoardHTML(q,slider){
+  const n=q.L.hands.length;
+  return `<div class="sx-board"><div class="sx-grid" id="sx-grid"></div><div class="sx-side">
+    <div class="muted" style="font-size:12px">Famille : <b style="color:var(--text)">${esc(q.L.name)}</b> (${esc(q.L.hands[0])} → ${esc(q.L.hands[n-1])})</div>
+    <div class="sx-hand" id="sx-hand"></div>
+    ${slider?`<div class="sx-ctl"><button class="btn" id="sx-m" aria-label="Main plus forte"${q.done?' disabled':''}>◀</button><input type="range" id="sx-s" min="0" max="${n-1}" value="${q.guess}"${q.done?' disabled':''} aria-label="Dernière main jouée"><button class="btn" id="sx-p" aria-label="Main plus faible"${q.done?' disabled':''}>▶</button></div>
+    <div class="sx-axis muted"><span>${esc(q.L.hands[0])} · forte</span><span>faible · ${esc(q.L.hands[n-1])}</span></div>`:''}
+  </div></div>`;
+}
+function sxPaint(q){
+  const L=q.L, a=q.a, r=q.r, idx={}; L.hands.forEach((h,i)=>{ idx[h]=i; });
+  const g=q.done&&q.ans!=null?q.ans:q.guess;
+  for(const h of ALL_HANDS){ const c=q.g.cells[h]; c.classList.remove('sx-cut','sx-pick','sx-line','sx-dim'); const i=idx[h];
+    if(i==null){ c.classList.add('sx-dim'); c.style.background=q.done?(((r.data[h]||{})[a]||0)>0?cellBg({[a]:(r.data[h]||{})[a]}):'var(--panel2)'):'var(--panel2)'; continue; }
+    c.classList.add('sx-line');
+    if(!q.done) c.style.background=i<=g?'color-mix(in srgb,var(--brass) 62%,var(--panel2))':'var(--panel2)';
+    else { const f=(r.data[h]||{})[a]||0; c.style.background=f>0?cellBg({[a]:f}):'var(--panel2)'; if(i===L.cut) c.classList.add('sx-cut'); }
+    if(i===g) c.classList.add('sx-pick'); }
+}
+function sxMount(q,slider){
+  q.g=makeGrid($('#sx-grid'),{small:true,readonly:true});
+  const upd=()=>{ const g=q.done&&q.ans!=null?q.ans:q.guess; $('#sx-hand').textContent=q.L.hands[g]; sxPaint(q); };
+  if(slider&&!q.done){
+    const n=q.L.hands.length;
+    $('#sx-s').oninput=e=>{ q.guess=+e.target.value; upd(); };
+    $('#sx-m').onclick=()=>{ q.guess=Math.max(0,q.guess-1); $('#sx-s').value=q.guess; upd(); };
+    $('#sx-p').onclick=()=>{ q.guess=Math.min(n-1,q.guess+1); $('#sx-s').value=q.guess; upd(); };
+  }
+  upd();
+}
+function sxVerdict(q){ const e=Math.abs(q.ans-q.L.cut); return {e,k:e===0?'ok':e===1?'near':'far'}; }
+function sxFbHTML(q){
+  const L=q.L, v=sxVerdict(q), lab={ok:'Pile.',near:'À une main près.',far:'Trop loin.'}[v.k];
+  const around=[]; for(let i=Math.max(0,L.cut-2);i<=Math.min(L.hands.length-1,L.cut+2);i++) around.push(`<span class="${i===L.cut?'hit':''}">${L.hands[i]} <b>${fmt(L.f[i],0)} %</b></span>`);
+  return `<div class="sx-fb ${v.k}"><b>${lab}</b> La plus faible ${esc(L.name)} jouée : <b>${L.hand}</b>${v.e?` — tu avais placé <b>${L.hands[q.ans]}</b>`:''}.</div>
+    <div class="sx-strip" title="Fréquence de l'action autour de la coupure">${around.join('')}</div>
+    ${L.holes.length?`<div class="muted" style="font-size:13px">Pas jouées malgré tout : ${L.holes.map(i=>L.hands[i]).join(', ')}.</div>`:''}
+    ${L.mixed.length?`<div class="muted" style="font-size:13px">Jouées parfois, plus bas : ${L.mixed.slice(0,3).map(i=>`${L.hands[i]} ${fmt(L.f[i],0)} %`).join(' · ')}.</div>`:''}`;
+}
+const sxScore=q=>{ const v=sxVerdict(q); playScore(v.k!=='far',v.k==='ok'?1:0.5); };
+document.addEventListener('keydown',e=>{
+  if(!['front','glisse'].includes(PLAY.game)||(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')) return;
+  const q=GAMES[PLAY.game].q; if(!q||q.done) return; const t=e.target; if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)&&t.type!=='range') return;
+  e.preventDefault(); q.guess=Math.max(0,Math.min(q.L.hands.length-1,q.guess+(e.key==='ArrowLeft'?-1:1))); const s=$('#sx-s'); if(s){ s.value=q.guess; s.dispatchEvent(new Event('input')); } });
+const sxQHead=q=>`${esc(sxName(q.r))} · <b>${fmt(q.r.stack)} BB</b>`;
+const sxChip=a=>{ const c=actById(a); return `<span class="chip" style="background:${c.color};color:#fff">${esc(c.label)}</span>`; };
+
+/* ---------- 1. Frontière ---------- */
+const gFront={q:null,
+  next(){ const p=sxPick(); this.q=p?{...p,guess:Math.floor(p.L.hands.length/2),ans:null,done:false}:null; },
+  render(){
+    const q=this.q;
+    if(!q){ playShell(sxFilterHTML()+'<p class="muted">Aucune range exploitable dans cette sélection. Essaie « Toutes mes ranges ».</p>'); sxBindFilter(this); return; }
+    playShell(`${sxFilterHTML()}<div class="play-q">${sxQHead(q)}<br>Quelle est la <b>${esc(q.L.name)}</b> la plus faible avec laquelle tu ${sxVerb(q.a)} ? ${sxChip(q.a)}</div>
+      ${sxBoardHTML(q,true)}
+      ${q.done?sxFbHTML(q)+'<button class="btn primary" id="sx-next" style="align-self:flex-start">Suivante</button>':'<button class="btn primary" id="sx-ok" style="align-self:flex-start">Valider</button>'}
+      <p class="muted" style="margin:0;font-size:12px">Glisse jusqu’à la dernière main de la famille que tu joues : les cases allumées sont celles que tu gardes.</p>`);
+    sxBindFilter(this); sxMount(q,true);
+    if(q.done) $('#sx-next').onclick=()=>{ this.next(); this.render(); };
+    else $('#sx-ok').onclick=()=>{ q.ans=q.guess; q.done=true; sxScore(q); this.render(); };
+  }};
+
+/* ---------- 2. La plus faible (quatre choix) ---------- */
+function sxOpts(L){
+  const played=[],un=[];
+  for(let i=0;i<L.cut;i++) if(L.f[i]>=50) played.push(i);
+  for(let i=L.cut+1;i<L.hands.length;i++) if(L.f[i]<10) un.push(i);
+  if(played.length<2||!un.length) return null;
+  const near=played.filter(i=>i>=L.cut-3), pickP=sxShuf(near.length>=2?near:played).slice(0,2);
+  const idx=[L.cut,...pickP,sxShuf(un.slice(0,3))[0]];
+  return sxShuf(idx).map(i=>({i,h:L.hands[i],ok:i===L.cut}));
+}
+const gFaible={q:null,
+  next(){ for(let k=0;k<80;k++){ const p=sxPick(); if(!p) break; const o=sxOpts(p.L); if(o){ this.q={...p,opts:o,ans:null,done:false}; return; } } this.q=null; },
+  render(){
+    const q=this.q;
+    if(!q){ playShell(sxFilterHTML()+'<p class="muted">Aucune range adaptée dans cette sélection.</p>'); sxBindFilter(this); return; }
+    playShell(`${sxFilterHTML()}<div class="play-q">${sxQHead(q)}<br>Quelle est la <b>plus faible ${esc(q.L.name)}</b> que tu ${sxVerb(q.a)} ? ${sxChip(q.a)}</div>
+      <div class="play-opts sx-opts">${q.opts.map((o,k)=>`<button class="btn${q.done?(o.ok?' good':o.i===q.ans?' bad':''):''}" data-k="${k}"${q.done?' disabled':''}><span class="play-hand" style="font-size:26px">${o.h}</span>${q.done?`<small class="muted">${fmt(q.L.f[o.i],0)} %</small>`:''}</button>`).join('')}</div>
+      ${q.done?sxBoardHTML({...q,guess:q.L.cut},false)+sxFbHTML({...q,ans:q.L.cut})+'<button class="btn primary" id="sx-next" style="align-self:flex-start">Suivante</button>':'<p class="muted" style="margin:0;font-size:12px">Piège : une des mains est encore plus faible, mais elle n’est plus jouée.</p>'}`);
+    sxBindFilter(this);
+    if(q.done){ sxMount({...q,guess:q.L.cut,ans:q.L.cut},false); $('#sx-next').onclick=()=>{ this.next(); this.render(); }; }
+    else $('#play-body .sx-opts').onclick=e=>{ const b=e.target.closest('[data-k]'); if(!b) return; const o=q.opts[+b.dataset.k]; q.ans=o.i; q.done=true; playScore(o.ok); this.render(); };
+  }};
+
+/* ---------- 3. Le glissement (interpolation entre deux profondeurs) ---------- */
+function sxPickGlisse(){
+  const pool=sxPool(); if(!pool.length) return null;
+  for(let k=0;k<300;k++){
+    const r=rnd1(pool), fam=sxFam(r).filter(x=>x.data&&Object.keys(x.data).length>=20); if(fam.length<3) continue;
+    const lo=fam[0], hi=fam[fam.length-1]; if(hi.stack-lo.stack<4) continue;
+    const mids=fam.filter(x=>x.stack>lo.stack&&x.stack<hi.stack); if(!mids.length) continue;
+    const mid=rnd1(mids), a=rnd1(usedActions(mid.data)); if(!a) continue;
+    const tl=thrOf(lo,a), tm=thrOf(mid,a), th=thrOf(hi,a);
+    const ls=tm.lines.filter((l,i)=>l.ok&&tl.lines[i].cut>=0&&th.lines[i].cut>=0&&Math.abs(tl.lines[i].cut-th.lines[i].cut)>=2&&tl.lines[i].cut!==tm.lines[i].cut&&th.lines[i].cut!==tm.lines[i].cut);
+    if(!ls.length) continue;
+    const L=rnd1(ls), i=tm.lines.indexOf(L);
+    return {r:mid,a,t:tm,L,lo:{r:lo,L:tl.lines[i]},hi:{r:hi,L:th.lines[i]}};
+  }
+  return null;
+}
+const gGlisse={q:null,
+  next(){ const p=sxPickGlisse(); this.q=p?{...p,guess:Math.round((p.lo.L.cut+p.hi.L.cut)/2),ans:null,done:false}:null; },
+  render(){
+    const q=this.q;
+    if(!q){ playShell(sxFilterHTML()+'<p class="muted">Il faut une série de profondeurs (ex. 3 à 12 BB) avec des coupures qui bougent. Importe un CSV de solveur ou choisis « Toutes mes ranges ».</p>'); sxBindFilter(this); return; }
+    const ref=x=>`<span class="chip">${fmt(x.r.stack)} BB : <b>${x.L.hand}</b></span>`;
+    playShell(`${sxFilterHTML()}<div class="play-q">${esc(sxName(q.lo.r))} · ${sxChip(q.a)} · famille <b>${esc(q.L.name)}</b><br>La plus faible main jouée aux deux extrémités :</div>
+      <div class="row">${ref(q.lo)}<span class="muted">→</span><span class="chip sx-q">${fmt(q.r.stack)} BB : ?</span><span class="muted">→</span>${ref(q.hi)}</div>
+      <div style="font-size:14px">Où se situe la coupure à <b>${fmt(q.r.stack)} BB</b> ?</div>
+      ${sxBoardHTML(q,true)}
+      ${q.done?sxFbHTML(q)+'<button class="btn primary" id="sx-next" style="align-self:flex-start">Suivante</button>':'<button class="btn primary" id="sx-ok" style="align-self:flex-start">Valider</button>'}`);
+    sxBindFilter(this); sxMount(q,true);
+    if(q.done) $('#sx-next').onclick=()=>{ this.next(); this.render(); };
+    else $('#sx-ok').onclick=()=>{ q.ans=q.guess; q.done=true; sxScore(q); this.render(); };
+  }};
+Object.assign(GAMES,{front:gFront,faible:gFaible,glisse:gGlisse});
+
+/* ---------- 4. Fiche de seuils dans Lecture ---------- */
+function sxTrain(r){ SXF.only=r; showTab('play'); if(PLAY.game) playQuit(); SXF.only=r; playOpen('front'); }
+function renderThr(){
+  const el=$('#rd-thr'); if(!el) return; const r=getRange(RD.id); if(!r||!r.data){ el.innerHTML=''; return; }
+  const fam=sxFam(r), cur=usedActions(r.data).filter(a=>thrOf(r,a).lines.some(l=>l.cut>=0));
+  if(!cur.length){ el.innerHTML=''; return; }
+  if(!cur.includes(SXF.act)) SXF.act=cur[0];
+  const a=SXF.act, t=thrOf(r,a), c=actById(a);
+  const cols=fam.length>=2?fam:[r];
+  const rows=SXLINES.map((L,i)=>({L,cells:cols.map(x=>thrOf(x,a).lines[i])})).filter(x=>x.cells.some(l=>l.cut>=0));
+  const table=`<div class="scroll-x"><table class="t thr-t"><thead><tr><th>Famille</th>${cols.map(x=>`<th class="${x.id===r.id?'cur':''}">${fmt(x.stack)} BB</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr><th style="text-align:left">${esc(x.L.name)}</th>${x.cells.map((l,j)=>`<td class="${cols[j].id===r.id?'cur':''}">${l.cut>=0?`<b>${l.hand}</b>${l.full?'<small>toute la famille</small>':''}`:'<span class="muted">–</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Fiche de seuils</h3><button class="btn sm primary" id="thr-train">S’entraîner sur ce spot</button></div>
+    <div class="row" id="thr-acts" style="gap:6px">${cur.map(k=>{ const ac=actById(k); return `<button class="btn sm${k===a?' primary':''}" data-a="${k}"><i class="dot" style="background:${ac.color}"></i> ${esc(ac.label)}</button>`; }).join('')}</div>
+    <p class="muted" style="margin:0;font-size:12px">Pour « ${esc(c.label)} » : la main la plus faible jouée (au moins la moitié du temps) dans chaque famille${cols.length>1?', à chaque profondeur':''}.</p>${table}`;
+  $('#thr-train').onclick=()=>sxTrain(r);
+  $('#thr-acts').onclick=e=>{ const b=e.target.closest('[data-a]'); if(!b) return; SXF.act=b.dataset.a; renderThr(); };
+}
+{ const _rr=renderRead; renderRead=function(){ _rr(); renderThr(); }; RENDERERS.read=renderRead; }
 
 </script>
 </body>
